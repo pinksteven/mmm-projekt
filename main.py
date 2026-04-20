@@ -1,9 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-H_MIN = 1e-8
-H_MAX = 0.05
-SAFETY = 0.9
+H_MIN = 1e-8  # Minimalny dopuszczalny krok w symulacji RK
+H_MAX = 0.05  # Maksymalny dopuszczalny krok w symulacji RK
+SAFETY = 0.9  # Współczynnik bezpieczeństwa do adaptacyjnego sterowania krokiem w RK
+# Tolerancje do symulacji RK
+# z samą względną tolerancją istniałaby szansa uszyskania tolerancji 0
+# co najpewniej zatrzymałoby program
+ATOL = 1e-7  # Absolute tolerance
+RTOL = 1e-5  # Relative tolerance
+
+# Maksymalna liczba kroków na sekundę, aby uniknąć nieskończonej pętli
+MAX_STEPS_PER_SEC = 10e6
 
 
 class Object:
@@ -46,14 +54,15 @@ class Object:
                 self.u[-1] if len(self.u) > 0 else -self.B
             )  # Default to low state if state can't be determined
 
-    def _f(self, x2, u):
+    def _f(self, x2, u):  # Wyznaczanie pochodnych x1 oraz x2
         dx1dt = x2
         dx2dt = self.kp / self.Tp * u - x2 / self.Tp
         return dx1dt, dx2dt
 
     def simulate(self, t_end, r_func):
-
-        while self.time[-1] < t_end:
+        t_diff = t_end - self.time[-1]
+        n = 0
+        while self.time[-1] < t_end and n < MAX_STEPS_PER_SEC * t_diff:
             t = self.time[-1]
             x1k = self.x1[-1]
             x2k = self.x2[-1]
@@ -100,6 +109,12 @@ class Object:
                 dtype=np.float64,
             )
 
+            # Wszystkie współczynniki wykorzystują to samo u, jest to teoratycznie błąd
+            # ponieważ z każdym k idziemy trochę do przodu ale metoda sample-and-hold tutaj
+            # znacząco upraszcza program. Jest możliwe że delikatnie miniemy się z dokładnym
+            # momentem przełączenia histerezy w tym przypadku, ale w okolicach histerezy
+            # powinny pojawić się drastyczne zmiany które skrócą rozmiar kroku
+            # zwiększając dokładność
             k1_x1, k1_x2 = self._f(x2k, u_k)
             k2_x1, k2_x2 = self._f(x2k + self.dt * A[0, 0] * k1_x2, u_k)
             k3_x1, k3_x2 = self._f(
@@ -173,14 +188,11 @@ class Object:
                 + B4[6] * k7_x2
             )
 
-            atol = 1e-7  # Absolute tolerance
-            rtol = 1e-5  # Relative tolerance
-
             err1 = x1_5 - x1_4
             err2 = x2_5 - x2_4
 
-            s1 = atol + rtol * max(abs(x1k), abs(x1_5))
-            s2 = atol + rtol * max(abs(x2k), abs(x2_5))
+            s1 = ATOL + RTOL * max(abs(x1k), abs(x1_5))
+            s2 = ATOL + RTOL * max(abs(x2k), abs(x2_5))
             # Znormalizowany błąd
             err_norm = max(abs(err1) / s1, abs(err2) / s2)
 
@@ -199,3 +211,4 @@ class Object:
             else:
                 h = SAFETY * self.dt * (1 / err_norm) ** (1 / 5)
             self.dt = np.clip(h, H_MIN, H_MAX)
+            n += 1
