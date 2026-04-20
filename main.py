@@ -1,5 +1,3 @@
-from multiprocessing import Array
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -64,11 +62,7 @@ class Object:
             e1_k = e_k - self.T * x2k
             u_k = self.hysteresis(e1_k)
 
-            self.e = np.append(self.e, e_k)
-            self.e1 = np.append(self.e1, e1_k)
-            self.u = np.append(self.u, u_k)
-
-            butcher = np.array(
+            A = np.array(
                 [
                     [1 / 5, 0, 0, 0, 0, 0, 0],
                     [3 / 40, 9 / 40, 0, 0, 0, 0, 0],
@@ -84,90 +78,99 @@ class Object:
                         0,
                     ],
                     [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84, 0],
-                    [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84, 0],
-                    [
-                        5179 / 57600,
-                        0,
-                        7571 / 16695,
-                        393 / 640,
-                        -92097 / 339200,
-                        187 / 2100,
-                        1 / 40,
-                    ],
-                ]
+                ],
+                dtype=np.float64,
+            )
+
+            B5 = np.array(
+                [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84, 0],
+                dtype=np.float64,
+            )
+
+            B4 = np.array(
+                [
+                    5179 / 57600,
+                    0,
+                    7571 / 16695,
+                    393 / 640,
+                    -92097 / 339200,
+                    187 / 2100,
+                    1 / 40,
+                ],
+                dtype=np.float64,
             )
 
             k1_x1, k1_x2 = self._f(x2k, u_k)
-            k2_x1, k2_x2 = self._f(x2k + self.dt * butcher[0, 0] * k1_x2, u_k)
+            k2_x1, k2_x2 = self._f(x2k + self.dt * A[0, 0] * k1_x2, u_k)
             k3_x1, k3_x2 = self._f(
-                x2k + self.dt * butcher[1, 0] * k1_x2 + self.dt * butcher[2, 1] * k2_x2,
+                x2k + self.dt * A[1, 0] * k1_x2 + self.dt * A[1, 1] * k2_x2,
                 u_k,
             )
             k4_x1, k4_x2 = self._f(
                 x2k
-                + self.dt * butcher[2, 0] * k1_x2
-                + self.dt * butcher[2, 1] * k2_x2
-                + self.dt * butcher[2, 2] * k3_x2,
+                + self.dt * A[2, 0] * k1_x2
+                + self.dt * A[2, 1] * k2_x2
+                + self.dt * A[2, 2] * k3_x2,
                 u_k,
             )
             k5_x1, k5_x2 = self._f(
                 x2k
-                + self.dt * butcher[3, 0] * k1_x2
-                + self.dt * butcher[3, 1] * k2_x2
-                + self.dt * butcher[3, 2] * k3_x2
-                + self.dt * butcher[3, 3] * k4_x2,
+                + self.dt * A[3, 0] * k1_x2
+                + self.dt * A[3, 1] * k2_x2
+                + self.dt * A[3, 2] * k3_x2
+                + self.dt * A[3, 3] * k4_x2,
                 u_k,
             )
             k6_x1, k6_x2 = self._f(
                 x2k
-                + self.dt * butcher[4, 0] * k1_x2
-                + self.dt * butcher[4, 1] * k2_x2
-                + self.dt * butcher[4, 2] * k3_x2
-                + self.dt * butcher[4, 3] * k4_x2
-                + self.dt * butcher[4, 4] * k5_x2,
+                + self.dt * A[4, 0] * k1_x2
+                + self.dt * A[4, 1] * k2_x2
+                + self.dt * A[4, 2] * k3_x2
+                + self.dt * A[4, 3] * k4_x2
+                + self.dt * A[4, 4] * k5_x2,
                 u_k,
             )
             k7_x1, k7_x2 = self._f(
                 x2k
-                + self.dt * butcher[5, 0] * k1_x2
-                + self.dt * butcher[5, 1] * k2_x2
-                + self.dt * butcher[5, 2] * k3_x2
-                + self.dt * butcher[5, 3] * k4_x2
-                + self.dt * butcher[5, 4] * k5_x2
-                + self.dt * butcher[5, 5] * k6_x2,
+                + self.dt * A[5, 0] * k1_x2
+                + self.dt * A[5, 1] * k2_x2
+                + self.dt * A[5, 2] * k3_x2
+                + self.dt * A[5, 3] * k4_x2
+                + self.dt * A[5, 4] * k5_x2
+                + self.dt * A[5, 5] * k6_x2,
                 u_k,
             )
 
             x1_5 = x1k + self.dt * (
-                butcher[6, 0] * k1_x1
-                + butcher[6, 2] * k3_x1
-                + butcher[6, 3] * k4_x1
-                + butcher[6, 4] * k5_x1
-                + butcher[6, 5] * k6_x1
+                B5[0] * k1_x1
+                + B5[2] * k3_x1
+                + B5[3] * k4_x1
+                + B5[4] * k5_x1
+                + B5[5] * k6_x1
             )
             x1_4 = x1k + self.dt * (
-                butcher[7, 0] * k1_x1
-                + butcher[7, 2] * k3_x1
-                + butcher[7, 3] * k4_x1
-                + butcher[7, 4] * k5_x1
-                + butcher[7, 5] * k6_x1
-                + butcher[7, 6] * k7_x1
+                B4[0] * k1_x1
+                + B4[2] * k3_x1
+                + B4[3] * k4_x1
+                + B4[4] * k5_x1
+                + B4[5] * k6_x1
+                + B4[6] * k7_x1
             )
 
             x2_5 = x2k + self.dt * (
-                butcher[6, 0] * k1_x2
-                + butcher[6, 2] * k3_x2
-                + butcher[6, 3] * k4_x2
-                + butcher[6, 4] * k5_x2
-                + butcher[6, 5] * k6_x2
+                B5[0] * k1_x2
+                + B5[2] * k3_x2
+                + B5[3] * k4_x2
+                + B5[4] * k5_x2
+                + B5[5] * k6_x2
             )
             x2_4 = x2k + self.dt * (
-                butcher[7, 0] * k1_x2
-                + butcher[7, 2] * k3_x2
-                + butcher[7, 3] * k4_x2
-                + butcher[7, 4] * k5_x2
-                + butcher[7, 5] * k6_x2
-                + butcher[7, 6] * k7_x2
+                B4[0] * k1_x2
+                + B4[2] * k3_x2
+                + B4[3] * k4_x2
+                + B4[4] * k5_x2
+                + B4[5] * k6_x2
+                + B4[6] * k7_x2
             )
 
             atol = 1e-7  # Absolute tolerance
@@ -186,6 +189,9 @@ class Object:
                 self.time = np.append(self.time, t + self.dt)
                 self.x1 = np.append(self.x1, x1_5)
                 self.x2 = np.append(self.x2, x2_5)
+                self.e = np.append(self.e, e_k)
+                self.e1 = np.append(self.e1, e1_k)
+                self.u = np.append(self.u, u_k)
 
             # Update step size
             if err_norm == 0:
