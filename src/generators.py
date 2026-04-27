@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def harmonic(amplitude, frequency, time, dc_offset=0):
+def harmonic(amplitude, frequency, time, dc_offset=0.0):
     return 0.5 * amplitude * np.sin(2 * np.pi * frequency * time) + dc_offset
 
 
@@ -13,14 +13,14 @@ def square_wave(high_state, low_state, frequency, time, fill=0.5):
         return low_state
 
 
-def impulse(high_state, len, start_t, time, dc_offset=0):
+def impulse(high_state, len, start_t, time, dc_offset=0.0):
     if start_t <= time <= start_t + len:
         return high_state + dc_offset
     else:
         return dc_offset
 
 
-def triangle_wave(amplitude, frequency, time, dc_offset=0):
+def triangle_wave(amplitude, frequency, time, dc_offset=0.0):
     period = 1 / frequency
     t = (time % period) / period
     if t < 0.25:
