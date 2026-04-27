@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 
 H_MIN = 1e-8  # Minimalny dopuszczalny krok w symulacji RK
@@ -11,7 +10,7 @@ ATOL = 1e-7  # Absolute tolerance
 RTOL = 1e-5  # Relative tolerance
 
 # Maksymalna liczba kroków na sekundę, aby uniknąć nieskończonej pętli
-MAX_STEPS_PER_SEC = 10e6
+MAX_STEPS_PER_SAMPLE = 10e6
 
 
 class Object:
@@ -44,25 +43,29 @@ class Object:
         self.e1 = np.array([], dtype=np.float64)  # Wejście histerezy
         self.u = np.array([], dtype=np.float64)  # Wyjście histerezy
 
-    def hysteresis(self, u):
+    def hysteresis(self, u, prev_state=None):
         if u > self.a:
             return self.B
         elif u < -self.a:
             return -self.B
         else:
-            return (
-                self.u[-1] if len(self.u) > 0 else -self.B
-            )  # Default to low state if state can't be determined
+            if prev_state is not None:
+                return prev_state
+            elif len(self.u) > 0:
+                return self.u[-1]
+            else:
+                return -self.B  # Default to low state if state can't be determined
 
-    def _f(self, x2, u):  # Wyznaczanie pochodnych x1 oraz x2
+    def _f(self, t, x1, x2, u, r_func):  # Wyznaczanie pochodnych x1 oraz x2
+        sim_e1 = r_func(t) - x1
+        sim_u = self.hysteresis(sim_e1, u)
         dx1dt = x2
-        dx2dt = self.kp / self.Tp * u - x2 / self.Tp
+        dx2dt = self.kp / self.Tp * sim_u - x2 / self.Tp
         return dx1dt, dx2dt
 
     def simulate(self, t_end, r_func):
-        t_diff = t_end - self.time[-1]
         n = 0
-        while self.time[-1] < t_end and n < MAX_STEPS_PER_SEC * t_diff:
+        while self.time[-1] < t_end:
             t = self.time[-1]
             x1k = self.x1[-1]
             x2k = self.x2[-1]
@@ -71,8 +74,11 @@ class Object:
             e1_k = e_k - self.T * x2k
             u_k = self.hysteresis(e1_k)
 
+            T = np.array([0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1], dtype=np.float64)
+
             A = np.array(
                 [
+                    [0, 0, 0, 0, 0, 0, 0],
                     [1 / 5, 0, 0, 0, 0, 0, 0],
                     [3 / 40, 9 / 40, 0, 0, 0, 0, 0],
                     [44 / 45, -56 / 15, 32 / 9, 0, 0, 0, 0],
@@ -109,84 +115,25 @@ class Object:
                 dtype=np.float64,
             )
 
-            # Wszystkie współczynniki wykorzystują to samo u, jest to teoratycznie błąd
-            # ponieważ z każdym k idziemy trochę do przodu ale metoda sample-and-hold tutaj
-            # znacząco upraszcza program. Jest możliwe że delikatnie miniemy się z dokładnym
-            # momentem przełączenia histerezy w tym przypadku, ale w okolicach histerezy
-            # powinny pojawić się drastyczne zmiany które skrócą rozmiar kroku
-            # zwiększając dokładność
-            k1_x1, k1_x2 = self._f(x2k, u_k)
-            k2_x1, k2_x2 = self._f(x2k + self.dt * A[0, 0] * k1_x2, u_k)
-            k3_x1, k3_x2 = self._f(
-                x2k + self.dt * A[1, 0] * k1_x2 + self.dt * A[1, 1] * k2_x2,
-                u_k,
-            )
-            k4_x1, k4_x2 = self._f(
-                x2k
-                + self.dt * A[2, 0] * k1_x2
-                + self.dt * A[2, 1] * k2_x2
-                + self.dt * A[2, 2] * k3_x2,
-                u_k,
-            )
-            k5_x1, k5_x2 = self._f(
-                x2k
-                + self.dt * A[3, 0] * k1_x2
-                + self.dt * A[3, 1] * k2_x2
-                + self.dt * A[3, 2] * k3_x2
-                + self.dt * A[3, 3] * k4_x2,
-                u_k,
-            )
-            k6_x1, k6_x2 = self._f(
-                x2k
-                + self.dt * A[4, 0] * k1_x2
-                + self.dt * A[4, 1] * k2_x2
-                + self.dt * A[4, 2] * k3_x2
-                + self.dt * A[4, 3] * k4_x2
-                + self.dt * A[4, 4] * k5_x2,
-                u_k,
-            )
-            k7_x1, k7_x2 = self._f(
-                x2k
-                + self.dt * A[5, 0] * k1_x2
-                + self.dt * A[5, 1] * k2_x2
-                + self.dt * A[5, 2] * k3_x2
-                + self.dt * A[5, 3] * k4_x2
-                + self.dt * A[5, 4] * k5_x2
-                + self.dt * A[5, 5] * k6_x2,
-                u_k,
-            )
+            k_x1 = np.array([0, 0, 0, 0, 0, 0, 0], dtype=np.float64)
+            k_x2 = np.array([0, 0, 0, 0, 0, 0, 0], dtype=np.float64)
 
-            x1_5 = x1k + self.dt * (
-                B5[0] * k1_x1
-                + B5[2] * k3_x1
-                + B5[3] * k4_x1
-                + B5[4] * k5_x1
-                + B5[5] * k6_x1
-            )
-            x1_4 = x1k + self.dt * (
-                B4[0] * k1_x1
-                + B4[2] * k3_x1
-                + B4[3] * k4_x1
-                + B4[4] * k5_x1
-                + B4[5] * k6_x1
-                + B4[6] * k7_x1
-            )
+            for i in range(7):
+                x1_step = self.dt * np.sum(A[i] * k_x1)
+                x2_step = self.dt * np.sum(A[i] * k_x2)
+                k_x1[i], k_x2[i] = self._f(
+                    t + self.dt * T[i],
+                    x1k + x1_step,
+                    x2k + x2_step,
+                    u_k,
+                    r_func,
+                )
 
-            x2_5 = x2k + self.dt * (
-                B5[0] * k1_x2
-                + B5[2] * k3_x2
-                + B5[3] * k4_x2
-                + B5[4] * k5_x2
-                + B5[5] * k6_x2
-            )
-            x2_4 = x2k + self.dt * (
-                B4[0] * k1_x2
-                + B4[2] * k3_x2
-                + B4[3] * k4_x2
-                + B4[4] * k5_x2
-                + B4[5] * k6_x2
-                + B4[6] * k7_x2
-            )
+            x1_5 = x1k + self.dt * np.sum(B5 * k_x1)
+            x1_4 = x1k + self.dt * np.sum(B4 * k_x1)
+
+            x2_5 = x2k + self.dt * np.sum(B5 * k_x2)
+            x2_4 = x2k + self.dt * np.sum(B4 * k_x2)
 
             err1 = x1_5 - x1_4
             err2 = x2_5 - x2_4
@@ -197,13 +144,15 @@ class Object:
             err_norm = max(abs(err1) / s1, abs(err2) / s2)
 
             # Idziemy dalej jeżeli step size jest mniejszy niż minimum
-            if err_norm <= 1 or self.dt <= 1e-8:
+            # Albo zrobiliśmy za dużo kroków na tą próbkę
+            if err_norm <= 1 or self.dt <= 1e-8 or n >= MAX_STEPS_PER_SAMPLE:
                 self.time = np.append(self.time, t + self.dt)
                 self.x1 = np.append(self.x1, x1_5)
                 self.x2 = np.append(self.x2, x2_5)
                 self.e = np.append(self.e, e_k)
                 self.e1 = np.append(self.e1, e1_k)
                 self.u = np.append(self.u, u_k)
+                n = 0  # Nowy sample, zerujemy n
 
             # Update step size
             if err_norm == 0:
