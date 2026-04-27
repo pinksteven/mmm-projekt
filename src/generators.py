@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -6,12 +5,12 @@ def harmonic(amplitude, frequency, time, dc_offset=0):
     return 0.5 * amplitude * np.sin(2 * np.pi * frequency * time) + dc_offset
 
 
-def square_wave(amplitude, frequency, time, fill=0.5, dc_offset=0):
+def square_wave(high_state, low_state, frequency, time, fill=0.5):
     period = 1 / frequency
     if (time % period) <= fill * period:
-        return 0.5 * amplitude + dc_offset
+        return high_state
     else:
-        return -0.5 * amplitude + dc_offset
+        return low_state
 
 
 def impulse(high_state, len, start_t, time, dc_offset=0):
@@ -30,12 +29,3 @@ def triangle_wave(amplitude, frequency, time, dc_offset=0):
         return -2 * amplitude * (t / period - 0.5) + dc_offset
     else:
         return 2 * amplitude * (t / period - 1) + dc_offset
-
-
-x = np.linspace(0, 1, 1000000)
-y = []
-for t in x:
-    y.append(impulse(10e10, 10e-6, 0, t))
-
-plt.plot(x, y)
-plt.show()
