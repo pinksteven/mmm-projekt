@@ -13,11 +13,11 @@ def square_wave(high_state, low_state, frequency, time, fill=0.5):
         return low_state
 
 
-def impulse(high_state, len, start_t, time, dc_offset=0.0):
+def impulse(high_state, low_state, len, start_t, time):
     if start_t <= time <= start_t + len:
-        return high_state + dc_offset
+        return high_state
     else:
-        return dc_offset
+        return low_state
 
 
 def triangle_wave(amplitude, frequency, time, dc_offset=0.0):

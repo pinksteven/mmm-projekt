@@ -161,3 +161,14 @@ class Object:
                 h = SAFETY * self.dt * (1 / err_norm) ** (1 / 5)
             self.dt = np.clip(h, H_MIN, H_MAX)
             n += 1
+
+    def reset(self):
+        self.time = np.array([0], dtype=np.float64)  # Czas symulacji
+        self.dt = 0.01  # Krok czasowy (zmienny)
+
+        # Sygnały
+        self.x1 = np.array([self.x1[0]], dtype=np.float64)  # Wyjście układu (y)
+        self.x2 = np.array([self.x2[0]], dtype=np.float64)  # Pochodna wyjścia (y')
+        self.e = np.array([], dtype=np.float64)  # r-y
+        self.e1 = np.array([], dtype=np.float64)  # Wejście histerezy
+        self.u = np.array([], dtype=np.float64)  # Wyjście histerezy
