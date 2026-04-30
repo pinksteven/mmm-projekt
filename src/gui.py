@@ -61,9 +61,7 @@ obj_tbs = [
     TextBox(obj_axes[3], "$T_p$", initial="1.0", textalignment="center", label_pad=0.2),
     TextBox(obj_axes[4], "T", initial="1.0", textalignment="center", label_pad=0.2),
     TextBox(obj_axes[5], "y(0)", initial="0.0", textalignment="center", label_pad=0.2),
-    TextBox(
-        obj_axes[6], "y'(0)$", initial="0.0", textalignment="center", label_pad=0.2
-    ),
+    TextBox(obj_axes[6], "y'(0)", initial="0.0", textalignment="center", label_pad=0.2),
 ]
 
 
