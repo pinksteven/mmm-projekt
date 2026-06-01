@@ -42,6 +42,7 @@ class Object:
         self.e = np.array([], dtype=np.float64)  # r-y
         self.e1 = np.array([], dtype=np.float64)  # Wejście histerezy
         self.u = np.array([], dtype=np.float64)  # Wyjście histerezy
+        self.r = np.array([0], dtype=np.float64)  # Wejście układu (r)
 
     def hysteresis(self, u, prev_state=None):
         if u > self.a:
@@ -67,10 +68,11 @@ class Object:
         n = 0
         while self.time[-1] < t_end:
             t = self.time[-1]
+            r = r_func(t)
             x1k = self.x1[-1]
             x2k = self.x2[-1]
 
-            e_k = r_func(t) - x1k
+            e_k = r - x1k
             e1_k = e_k - self.T * x2k
             u_k = self.hysteresis(e1_k)
 
@@ -147,6 +149,7 @@ class Object:
             # Albo zrobiliśmy za dużo kroków na tą próbkę
             if err_norm <= 1 or self.dt <= 1e-8 or n >= MAX_STEPS_PER_SAMPLE:
                 self.time = np.append(self.time, t + self.dt)
+                self.r = np.append(self.r, r)
                 self.x1 = np.append(self.x1, x1_5)
                 self.x2 = np.append(self.x2, x2_5)
                 self.e = np.append(self.e, e_k)
@@ -172,3 +175,4 @@ class Object:
         self.e = np.array([], dtype=np.float64)  # r-y
         self.e1 = np.array([], dtype=np.float64)  # Wejście histerezy
         self.u = np.array([], dtype=np.float64)  # Wyjście histerezy
+        self.r = np.array([0], dtype=np.float64)  # Wejście układu (r)

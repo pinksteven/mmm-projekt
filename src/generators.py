@@ -6,6 +6,8 @@ def harmonic(amplitude, frequency, time, dc_offset=0.0):
 
 
 def square_wave(high_state, low_state, frequency, time, fill=0.5):
+    if frequency == 0:
+        return low_state
     period = 1 / frequency
     if (time % period) <= fill * period:
         return high_state
@@ -21,6 +23,8 @@ def impulse(high_state, low_state, len, start_t, time):
 
 
 def triangle_wave(amplitude, frequency, time, dc_offset=0.0):
+    if frequency == 0:
+        return dc_offset
     period = 1 / frequency
     t = (time % period) / period
     if t < 0.25:
