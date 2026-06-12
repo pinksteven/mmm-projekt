@@ -7,6 +7,7 @@
 \usepackage{fullpage}
 \usepackage{latexsym}
 \usepackage{amsmath}
+\usepackage{float}
 \usepackage{caption}
 \captionsetup[figure]{name=Rys.,labelsep=space,font={small,it}}
 \captionsetup[table]{name=Tab.,labelsep=space,font={small,it}}
@@ -77,6 +78,7 @@ Co po przekształceniach daje poniższy układ równań różniczkowych opisują
 Przekształcenie problemu do postaci rówań różniczkowych pozwoliło na zastosowanie szeregu metod numerycznych do symulacji działania układu.
 W celu osiągnięcia maksymalnej dokładności postanowiono zastosować metodę Rungego-Kutty czwartego rzędu z adaptacyjnym krokime symulacji.
 Do tego celu wykorzystano metodę Dormanda-Prince'a, opisaną poniższą tabelą Butchera:
+\renewcommand{\arraystretch}{1.25}
 \begin{table}[h]
     \centering
     \begin{tabular}{c|ccccccc}
@@ -111,11 +113,132 @@ gdzie $s$ jest współczynnikiem bezpieczeństwa, a $h$ poprzednią długością
 W przypadku gdy krok jest akcpetowany wykorzystywana jest estymacja 5-tego rzędu, uznawana za bardziej dokładną.
 
 \section{Implementacja programu}
-TODO: Implementacja
+Aplikacja symulacyjna została zaimplementowana w języku Python z wykorzystaniem podejścia obiektowego oraz modułowego, co pozwoliło na ścisłe odseparowanie warstwy obliczeniowej od logiki
+generowania sygnałów i interfejsu graficznego. Główną osią programu jest cykl symulacyjny uruchamiany w czasie rzeczywistym, w którym wejściowy sygnał wymuszający jest dynamicznie przetwarzany
+przez blok nieliniowy oraz liniowy obiekt dynamiczny, a wyniki są natychmiastowo wizualizowane na ekranie.
+
+Wewnętrzna architektura systemu opiera się na klasie reprezentującej symulowany obiekt, która odpowiada za przechowywanie aktualnego stanu układu, historii sygnałów oraz parametrów strukturalnych. Numeryczne
+rozwiązanie nieliniowego układu równań różniczkowych realizowane jest za pomocą opisanego w poprzedniej sekcji algorytmie. Dobrano wartość tolerancji abolutnej równej $10V{-7}$, tolerancji względnej $10^{-5}$,
+współczynnika bezpieczeństwa do adaptycejnego kroku równego 0.9, oraz dopuszczalną długość kroku symulacji w zakresie od $10^{-8}$ a $0.05$, dodatkowo ustalono maksymalną ilość iteracji na jedą próbkę sygnału
+wyjściowego na 10 milionów. Wartości te są łatwe w edycji i pozwalają na dostosowanie dokładności oraz wydajności symulacji do konkretnych potrzeb użytkownika z poziomu kodu.
+
+Kluczowym elementem algorytmu jest numeryczna realizacja członu nieliniowego w postaci przekaźnika z histerezą o progach przełączania $\pm\,b$ i wartościach $\pm,B$. Aby poprawnie odwzorować wieloznaczność charakterystyki
+histerezy, funkcja przełączająca zapamiętuje swój poprzedni stan i analizuje kierunek zmian sygnału uchybu, co zapobiega powstawaniu oscylacji numerycznych wewnątrz strefy nieczułości, do celu wyliczania współczynników
+$k_i$ jest też możliwość manualnego podania stanu uznanego za poprzedni do funkcji symulującej wyjście histerezy.
+
+Wymuszenia testowe podawane na wejście układu są generowane z wykorzystaniem biblioteki NumPy, która pozwala na wydajne, analityczne wyznaczanie wartości sygnałów dla dowolnej chwili czasowej t. Program
+oferuje pełną obsługę fali harmonicznej (sinusoidalnej), fali trójkątnej, fali prostokątnej z regulowanym współczynnikiem wypełnienia oraz pojedynczego impulsu o zdefiniowanym czasie rozpoczęcia i czasie trwania.
+Biblioteka NumPy także została wykorzystana do przechowywania historii sygnałów oraz stanu układu, co umożliwia szybki dostęp do danych i ich efektywne przetwarzanie podczas symulacji.
+
+Warstwa wizualna i interaktywna programu została zbudowana na bazie biblioteki Matplotlib. Okno aplikacji zostało ustrukturyzowane przy użyciu funkcji subplot\_mosaic, co pozwoliło na jednoczesne wyświetlanie głównego
+wykresu przebiegów czasowych oraz paneli sterowania. Płynność prezentacji danych w trybie online zapewnia mechanizm FuncAnimation, który odświeża wykres z częstotliwością 60 Hz. Podczas działania animacji okno obserwacji
+wykresu jest automatycznie przesuwane i utrzymuje stałą szerokość 15 jednostek czasu, podążając za najnowszymi punktami obliczonymi przez zaimplementowany silnik RK45. Użytkownik ma możliwość modyfikacji symulacji
+za pomocą wbudowanych widżetów: menu RadioButtons służy do zmiany typu sygnału wejściowego, natomiast zestaw pól TextBox pozwala na modyfikację warunków początkowych układu, parametrów liniowych ($k_p$,$T_p$,$T$) oraz
+nieliniowych ($b$,$B$) bez konieczności restartowania aplikacji. Modyfikowalne są także parametry sygnału wejściowego. Zmiana obiektu bądź sygnału wejściowego resetuje historię oraz rozpoczyna symulację od czasu $t=0$.
+Dodatkowo zaimplementowano przycisk pauzy, umożliwiający wstrzymanie kroku animacji i dokładną analizę utrwalonego przebiegu.
 
 \section{Wyniki symulacji}
-TODO: Wyniki symulacji(screeny)
-
+Poniżej przedstawiono przykładowe wyniki symulacji dla różnych sygnałów wejściowych oraz parametrów układu. Na wykresach można zaobserwować charakterystyczne zachowania układu nieliniowego,
+takie jak oscylacje, przeregulowania oraz stabilizację w zależności od rodzaju wymuszenia i ustawień parametrów.
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/sinusoidal.png}
+        \caption{Odpowiedź układu na sygnał sinusoidalny}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/triangular.png}
+        \caption{Odpowiedź układu na sygnał trójkątny}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/square.png}
+        \caption{Odpowiedź układu na sygnał prostokątny}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/impulse.png}
+        \caption{Odpowiedź układu na pojedynczy impuls}
+    \end{minipage}
+\end{figure}
+\bigbreak
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/lowa.png}
+        \caption{Wpływ szerokości histerezy na wyjście układu (b=0.5)}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/higha.png}
+        \caption{Wpływ szerokości histerezy na wyjście układu (b=1.5)}
+    \end{minipage}
+\end{figure}
+\bigbreak
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/lowb.png}
+        \caption{Wpływ amplitudy histerezy na wyjście układu (B=0.5)}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/highb.png}
+        \caption{Wpływ amplitudy histerezy na wyjście układu (b=2.0)}
+    \end{minipage}
+\end{figure}
+\bigbreak
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/lowtp.png}
+        \caption{Wpływ zmiany parametru $T_p$ ($T_p = 0.5$)}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/hightp.png}
+        \caption{Wpływ zmiany parametru $T_p$ ($T_p = 2.3$)}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/lowkp.png}
+        \caption{Wpływ zmiany wzmocnień $T$ oraz $k_p$ (niskie wartości)}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/highkp.png}
+        \caption{Wpływ zmiany parametru $T$ oraz $k_p$ (wysokie wartości)}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/lowfreq.png}
+        \caption{Wpływ częstotliowści sygnału wejściowego (niskie częstotliowści)}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img/highfreq.png}
+        \caption{Wpływ częstotliowści sygnału wejściowego (wysokie częstotliowści)}
+    \end{minipage}
+\end{figure}
 \section{Wnioski}
-TODO: Wnioski
+Zrealizowany projekt umożliwia kompleksową analizę układów dynamicznych pod wpływem różnych wymuszeń. Zastosowanie metody Rungego-Kutty 4(5) pozwala na uzyskanie dokładnych wyników przy efektywnym czasie obliczeń.
+
+Integracja GUI z biblioteką Matplotlib znacząco zwiększa funkcjonalność programu, umożliwiając intuicyjną i interaktywną analizę parametrów zarówno sygnału, jak i modelu układu.
+
+Projekt spełnia założone cele i stanowi funkcjonalne narzędzie do symulacji danego układu dynamicznego.
+Dzięki wykorzystaniu Python oraz bibliotek NumPy i Matplotlib możliwe było stworzenie elastycznego i przejrzystego środowiska do analizy sygnałów i odpowiedzi układu.
 \end{document}
